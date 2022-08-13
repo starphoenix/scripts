@@ -15,10 +15,8 @@ class NonogramBoard:
         row_str += self.grid[x][y]
       grid_str += row_str
       grid_str += "\n"
-    
     return grid_str
-      
-    
+
   def get_total(self, list):
     total = sum(list)
     total += len(list) - 1
@@ -26,11 +24,11 @@ class NonogramBoard:
     
   def validate(self):
     for row in self.rows:
-      if get_total(row) > self.width:
+      if self.get_total(row) > self.width:
         return False
       
     for col in self.columns:
-      if get_total(col) > self.height:
+      if self.get_total(col) > self.height:
         return False
     
     return True
@@ -41,8 +39,8 @@ class NonogramBoard:
         x = start + i if is_row else line
         y = line if is_row else start + i
         cur_mark = self.grid[x][y]
-        if cur_mark != "_" && cur_mark != mark:
-          raise Exception("Encountered conflict at grid position ({},{})".format(start+x, row))
+        if cur_mark != "_" and cur_mark != mark:
+          raise Exception("Encountered conflict at grid position ({},{})".format(x, y))
         self.grid[x][y] = mark
         
   def _get_line_numbers(self, is_row, line):
@@ -60,11 +58,11 @@ class NonogramBoard:
         cur_count = 0
     return nums
     
-  def _find_guaranteeds(is_row, line, numbers):
+  def _find_guaranteeds(self, is_row, line, numbers):
     total = self.get_total(numbers)
     line_length = self.width if is_row else self.height
     diff = line_length - total
-    if max(numbers) <= diff
+    if max(numbers) <= diff:
       # No guaranteed cells this line
       return
     cur_idx = 0
@@ -73,6 +71,39 @@ class NonogramBoard:
       if to_fill > 0:
         self._set_range(is_row, line, cur_idx+diff, to_fill, "O")
       cur_idx += n + 1
+
+  def _find_impossible(self, is_row, line, numbers):
+    # Reasons a cell may be impossible:
+    # 1) Gap is too small to fit the appropriate number in it
+    # 2) Cell is too far from the first or last filled cell, assuming we know that that cell belongs to the first or last number
+    # Is the first filled cell definitely attributable to the first number?
+    line_length = self.width if is_row else self.height
+    cur_gap = 0
+    first_fits = False
+    for i in range(line_length):
+      x = i if is_row else line
+      y = line if is_row else i
+      if self.grid[x][y] == "O":
+        break
+      elif self.grid[x][y] == "X":
+        # Hit a mark, can the current gap fit the first number
+        if cur_gap < numbers[0]:
+          # First number cannot fit in first gap, these are impossible
+          self._set_range(is_row, line, 0, i, "X")
+          # Reset gap size, continue searching row
+          cur_gap = 0
+        else:
+          # First number can fit in gap, no impossible cells here
+          first_fits = True
+          break
+      else:
+        # Still a blank cell, increase gap size and continue
+        cur_gap += 1
+
+    if not first_fits:
+      # First doesn't fit
+
+
 
   
   def solve(self):      
@@ -106,13 +137,22 @@ class NonogramBoard:
           if cur_idx < self.width:
             self._set_range(False, idx, cur_idx, 1, "X")
             cur_idx += 1
-    # while True:
+    while True:
+      for idx, row in enumerate(self.rows):
+        self._find_guaranteeds(True, idx, row)
+        self._find_impossible(True, idx, row)
+
+      for idx, col in enumerate(self.columns):
+        self._find_guaranteeds(False, idx, col)
+        self._find_impossible(False, idx, col)
+
+      break
     # Fill guaranteed cells (numbers in a line with a total close enough to the size of the line)
     # Fill other known cells, ones close enough to a boundary (edge or X) that must have others filled based on numbers
     # Find "impossible" cells, ones that cannot be filled due to presence of other fills or Xs
 
-print("Hello world")
-b = NonogramBoard([[5],[0],[1,1,1],[3,1],[4]],[[2,1],[1],[1],[1],[1]])
-print("Board: {}".format(str(b)))
+
+b = NonogramBoard([[5],[0],[1,1,1],[3,1],[2,1]],[[1],[1],[1],[1],[1]])
+print("Board: \n{}".format(str(b)))
 b.solve()
-print("Board: {}".format(str(b)))
+print("Board: \n{}".format(str(b)))
