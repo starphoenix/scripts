@@ -159,6 +159,7 @@ class NonogramBoard:
        cur_clue = 0;
     steps_taken = 0
     steps_taken_since_last_x =0
+    prev_index = -1
     for i in indices:
       print("---------------------------------")
       print("Current index:", i)
@@ -175,24 +176,32 @@ class NonogramBoard:
         cur_mark_length += 1
         print("Current mark length:", cur_mark_length)
       else:
+        if line[i] == -1:
+          print("There's already an X here!")
+          steps_taken_since_last_x = 0
+          if prev_index != -1:
+            if line[prev_index] == 1:
+              print("There's an X preceeded by a Square!")
+              #From here we need to be certain we're in current_clue
+              #but maybe not, not sure
+              #i think maybe we can just confidently backfill and see what happens?
+              if i > prev_index:
+                #we're moving forwards
+                self._mark_range(line, i-cur_clue, cur_clue, 1)
+              elif i < prev_index:
+                #we're moving backwards
+                self._mark_range(line, i+1, cur_clue, 1)
+              else:
+                #this shouldn't happen?
+                print("c")
         not_too_much_room_before = steps_taken_since_last_x < (cur_clue + 2)
         print("not_too_much?: {}, Steps taken since last x:{}, cur_clue +1:{}".format(not_too_much_room_before,steps_taken_since_last_x, cur_clue+1))
         if cur_mark_length == cur_clue and not_too_much_room_before:
           print("Mark & clue equal, mark and go to next clue:", cur_mark_length)
-          
           self._mark_range(line, i, 1, -1)
-#          index_before_cur_mark = i - cur_mark_length
-#          if (index_before_cur_mark > 0):
-#            if line[i-cur_mark_length] == 0:
-#              self._mark_range(line, i-cur_mark_length, 1, -1)
           steps_taken_since_last_x = 0
           made_mark = True;
-#        elif cur_mark_length < cur_clue:
-#          print("Reset steps taken since last x")
-#          steps_taken_since_last_x = 0
-#        elif line[i] == -1 and steps_taken_since_last_x >= cur_clue:
-#          print("Space between current spot and last X is equal to clue, very likely fits")
-#          self._mark_range(line, i-cur_clue, cur_clue, 1)
+          
         cur_mark_length = 0
       steps_minus_clue = steps_taken - (cur_clue+1)
       line_minus_total = line_length - remaining_total
@@ -208,6 +217,7 @@ class NonogramBoard:
         steps_taken_since_last_x = 0
       steps_taken += 1
       steps_taken_since_last_x += 1
+      prev_index = i
 
   def _mark_completed_clues(self, line, clues):
     print("****** Going forward through line")
@@ -219,7 +229,10 @@ class NonogramBoard:
     self._mark_completed_clues_helper_new(line, reversed_clues_copy, reversed(range(len(line))))
         
   def test_solve(self):
-    self.board[0,4] = 1
+    self.board[0,0] = 1
+    self.board[0,1] = -1
+    self.board[0,6] = 1
+    self.board[0,7] = -1
     self.board[1,0] = 1
     self.board[1,3] = 1
     self.board[1,4] = 1
@@ -227,7 +240,7 @@ class NonogramBoard:
     print("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB")
     self._mark_completed_clues(self.board[0,...], self.rows[0])
     print("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB")
-    self._mark_completed_clues(self.board[1,...], self.rows[1])
+#    self._mark_completed_clues(self.board[1,...], self.rows[1])
   
   def solve(self):      
     # First find empy, or full rows/columns
@@ -287,14 +300,33 @@ class NonogramBoard:
       
 #      print("Mark completed clues for row:{}, clues:{}".format(self.board[7,...], self.rows[7]))
 #      self._mark_completed_clues(self.board[7,...], self.rows[7])
-      
-      for idx in range(self.height):
-        print("Mark completed clues for row:{}, clues:{}".format(self.board[idx,...], self.rows[idx]))
-        self._mark_completed_clues(self.board[idx,...], self.rows[idx])
+      steps = 0
+      while (0 in self.board) and (steps < 10):
+        for idx in range(self.height):
+          print("Mark completed clues for row:{}, clues:{}".format(self.board[idx,...], self.rows[idx]))
+          self._mark_completed_clues(self.board[idx,...], self.rows[idx])
 
-      for idx in range(self.width):
-        print("Mark completed clues for column:{}, clues:{}".format(self.board[...,idx], self.columns[idx]))
-        self._mark_completed_clues(self.board[...,idx], self.columns[idx])
+        for idx in range(self.width):
+          print("Mark completed clues for column:{}, clues:{}".format(self.board[...,idx], self.columns[idx]))
+          self._mark_completed_clues(self.board[...,idx], self.columns[idx])
+          
+        steps += 1
+
+#      for idx in range(self.height):
+#        print("Mark completed clues for row:{}, clues:{}".format(self.board[idx,...], self.rows[idx]))
+#        self._mark_completed_clues(self.board[idx,...], self.rows[idx])
+#
+#      for idx in range(self.width):
+#        print("Mark completed clues for column:{}, clues:{}".format(self.board[...,idx], self.columns[idx]))
+#        self._mark_completed_clues(self.board[...,idx], self.columns[idx])
+#
+#      for idx in range(self.height):
+#        print("Mark completed clues for row:{}, clues:{}".format(self.board[idx,...], self.rows[idx]))
+#        self._mark_completed_clues(self.board[idx,...], self.rows[idx])
+#
+#      for idx in range(self.width):
+#        print("Mark completed clues for column:{}, clues:{}".format(self.board[...,idx], self.columns[idx]))
+#        self._mark_completed_clues(self.board[...,idx], self.columns[idx])
 
 
       break
@@ -329,7 +361,7 @@ print("C Board:")
 print("{}".format(str(c)))
  
 #test 2x10
-#d = NonogramBoard([[1,4], [1,3,1,1]],[[2],[0],[2],[2],[2],[1],[1],[0],[1],[0]])
+#d = NonogramBoard([[1,4], [1,3,1,1]],[[2],[0],[1],[2],[2],[2],[2],[0],[1],[0]])
 #
 #d.test_solve()
 #print("D Board:")
@@ -337,8 +369,8 @@ print("{}".format(str(c)))
 
 # Valid 15x15
 
-e = NonogramBoard([[6,2,1,2],[1,6,1],[1,1,2,1,1],[2,1,8],[2,1,5,1],[3,4,5],[2,1,3,4],[1,2,3,2],[5,4,1],[4,2,4,2],[3,2,2,5],[1,1,1,2,3],[1,1,1,5],[4,2,4],[1,3,1,3,1]],
-                  [[7,2],[1,2,3,2],[4,1,3,2],[1,2,1,2,3],[2,2,2,2,1],[4,1,1,2],[2,3,1],[3,2,1,4],[5,1,3,2],[2,2,3,2],[4,6,1],[1,5,2,3],[1,4,5],[1,2,3,5],[1,9,2]])
-e.solve()
-print("E Board:")
-print("{}".format(str(e)))
+#e = NonogramBoard([[6,2,1,2],[1,6,1],[1,1,2,1,1],[2,1,8],[2,1,5,1],[3,4,5],[2,1,3,4],[1,2,3,2],[5,4,1],[4,2,4,2],[3,2,2,5],[1,1,1,2,3],[1,1,1,5],[4,2,4],[1,3,1,3,1]],
+#                  [[7,2],[1,2,3,2],[4,1,3,2],[1,2,1,2,3],[2,2,2,2,1],[4,1,1,2],[2,3,1],[3,2,1,4],[5,1,3,2],[2,2,3,2],[4,6,1],[1,5,2,3],[1,4,5],[1,2,3,5],[1,9,2]])
+#e.solve()
+#print("E Board:")
+#print("{}".format(str(e)))
