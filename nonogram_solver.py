@@ -5,6 +5,11 @@ def print_array(array):
     "float": lambda x: "_" if (x == 0) else ("■" if (x == 1) else "X")
   }
   return np.array2string(array, None, None, None, "|", "", formatter=mapping)
+  
+class Clue:
+  def __init__(self, value):
+    self.value = value
+    self.possible_positions = []
 
 class NonogramBoard:
   
@@ -161,43 +166,25 @@ class NonogramBoard:
     steps_taken_since_last_x =0
     prev_index = -1
     for i in indices:
-      print("---------------------------------")
-      print("Current index:", i)
-      print("Steps left:{}".format(line_length - steps_taken))
-      print("Steps since last x:",steps_taken_since_last_x)
-      print("Remaining total:{}".format(remaining_total))
-      print("Current clue:{}".format(cur_clue))
-      print("Current mark length:", cur_mark_length)
-      print("Cell value:",line[i])
+#      print("---------------------------------")
+#      print("Current index:", i)
+#      print("Steps left:{}".format(line_length - steps_taken))
+#      print("Steps since last x:",steps_taken_since_last_x)
+#      print("Remaining total:{}".format(remaining_total))
+#      print("Current clue:{}".format(cur_clue))
+#      print("Current mark length:", cur_mark_length)
+#      print("Cell value:",line[i])
       
       made_mark = False
       if line[i] == 1:
-        print("Index:{} is filled in".format(i))
+#        print("Index:{} is filled in".format(i))
         cur_mark_length += 1
-        print("Current mark length:", cur_mark_length)
+#        print("Current mark length:", cur_mark_length)
       else:
-        if line[i] == -1:
-          print("There's already an X here!")
-          steps_taken_since_last_x = 0
-          if prev_index != -1:
-            if line[prev_index] == 1:
-              print("There's an X preceeded by a Square!")
-              #From here we need to be certain we're in current_clue
-              #but maybe not, not sure
-              #i think maybe we can just confidently backfill and see what happens?
-              if i > prev_index:
-                #we're moving forwards
-                self._mark_range(line, i-cur_clue, cur_clue, 1)
-              elif i < prev_index:
-                #we're moving backwards
-                self._mark_range(line, i+1, cur_clue, 1)
-              else:
-                #this shouldn't happen?
-                print("c")
         not_too_much_room_before = steps_taken_since_last_x < (cur_clue + 2)
-        print("not_too_much?: {}, Steps taken since last x:{}, cur_clue +1:{}".format(not_too_much_room_before,steps_taken_since_last_x, cur_clue+1))
+#        print("not_too_much?: {}, Steps taken since last x:{}, cur_clue +1:{}".format(not_too_much_room_before,steps_taken_since_last_x, cur_clue+1))
         if cur_mark_length == cur_clue and not_too_much_room_before:
-          print("Mark & clue equal, mark and go to next clue:", cur_mark_length)
+#          print("Mark & clue equal, mark and go to next clue:", cur_mark_length)
           self._mark_range(line, i, 1, -1)
           steps_taken_since_last_x = 0
           made_mark = True;
@@ -206,9 +193,9 @@ class NonogramBoard:
       steps_minus_clue = steps_taken - (cur_clue+1)
       line_minus_total = line_length - remaining_total
       should_go = (steps_minus_clue >= line_minus_total) or made_mark
-      print("Should go to next clue? {} Steps taken - cur clue: {}, line length - remaining total: {}".format(should_go, steps_minus_clue, line_minus_total))
+#      print("Should go to next clue? {} Steps taken - cur clue: {}, line length - remaining total: {}".format(should_go, steps_minus_clue, line_minus_total))
       if should_go:
-        print("There isn't room left for the rest of the clues, or we made a mark, get next clue.")
+#        print("There isn't room left for the rest of the clues, or we made a mark, get next clue.")
         remaining_total = self.get_clues_total(clues)
         if clues:
           cur_clue = clues.pop(0)
@@ -220,14 +207,104 @@ class NonogramBoard:
       prev_index = i
 
   def _mark_completed_clues(self, line, clues):
-    print("****** Going forward through line")
-    print("Clues:", clues)
+#    print("****** Going forward through line")
+#    print("Clues:", clues)
     clues_copy = clues.copy()
     self._mark_completed_clues_helper_new(line, clues_copy, range(len(line)))
-    print("****** Going backward through line")
+#    print("****** Going backward through line")
     reversed_clues_copy = clues.copy()[::-1]
     self._mark_completed_clues_helper_new(line, reversed_clues_copy, reversed(range(len(line))))
-        
+    
+    
+  def _remove_clues_in_gap(self, line, clues, indices):
+    #I don't know. Kinda like mark completed clues but the goal of this is to just remove stuff from the clues array.
+    filled_cell_group_lengths = []
+    cur_mark_length
+    for step, index in enumerate(indices):
+      if line[index] == 1:
+        cur_mark_length+= 1:
+      else:
+        if cur_mark_length > 0:
+          filled_cell_group_lengths.append(cur_mark_length)
+          cur_mark_length = 0
+    print("Found some filled cells:", filled_cell_group_lengths)
+    clue_indices_to_remove = []
+    for step, length in enumerate(filled_cell_group_lengths):
+      if length == clues[step]:
+        clue_indices_to_remove.append(step)
+    new_clues = []
+    for idx, clue in clues:
+      if idx not in clue_indices_to_remove:
+        new_clues.append(clue)
+    clues = new_clues
+      
+  def _find_remaining_gap(self, line, indices):
+    index_of_last_o = 0
+    for step, index in enumerate(indices):
+      if line[index] == 1:
+        index_of_last_o = index
+    return len(line) - index_of_last_o
+      
+    
+  def _distribute_clues_helper(self, line, clues, indices):
+    #Mark index of last x (or 0 to start)
+    #Mark index of current X (first one found)
+    line_length = len(line)
+    last_x = 0
+    current_x = 0
+    cur_clues = clues.copy()
+    remaining_total = self.get_clues_total(cur_clues)
+    # indices might be going forwards or backwards.
+    # Therefore it's important we also track how many steps we've taken.
+    for step, index in enumerate(indices):
+      if line[index] == -1:
+        print("We found an X!")
+        current_x = index
+        increasing = True if current_x > last_x else False
+        dist = current_x - last_x if increasing else last_x - current_x
+        prior_gap = line[last_x:current_x-1] if increasing else line[current_x+1:last_x]
+        #Check if any clues are currently fulfilled within the prior gap
+        self._remove_clues_in_gap(prior_gap, cur_clues)
+        print("Distance from previous x:", dist)
+        rest_of_line = line_length - step
+        must_be_in_gap = []
+        #Any clue that cannot fit in the rest of the line MUST fit before this X.
+        #But be warned, that does not mean none of the rest of the clues could also fit.
+        #Any remaining clues that could fit in the remaining space before our current X
+        #Could go in this prior space or in the next space, and so for this algorithm, we cannot place that clue.
+        while self.get_clues_total(cur_clues) > rest_of_line:
+          must_be_in_gap.append(cur_clues.pop(0))
+        if must_be_in_gap != []:
+          #Do find guaranteeds inner algo on this gap with those clues.
+          print("Some clues must be in the gap before previous index.", must_be_in_gap)
+          self._fill_guaranteeds(prior_gap, must_be_in_gap)
+          #Find any remaining gap in the prior gap, remove clues from cur_clues while there's possible space left.
+          remaining_gap_length = self._find_remaining_gap(prior_gap, range(len(prior_gap)) if increasing else reversed(range(len(prior_gap))))
+          while remaining_gap_length > 0 and cur_clues != []:
+            next_clue = cur_clues.pop(0)
+            if next_clue < remaining_gap_length:
+              remaining_gap_length - next_clue+1
+            else:
+              #This clue couldn't fit in the remaining gap, so we should keep it in our list.
+              cur_clues.insert(0, next_clue)
+              break
+        last_x = index
+              
+     # See how many clues fit into the rest of the line.
+     # Any clues that cannot fit into the rest of the line MUST fit into the gap prior to our current X.
+     # Perform the find guaranteeds algorithm on that range with those clues that did not fit.
+     # Find out how many clues could fit in the space that's left in the first gap.
+     # Only pass forward into the next iteration those clues that could not fit into the prior gap.
+    
+  def _distribute_clues(self, line, clues):
+    print("*Distribute*Clues****** Going forward through line")
+    print("Clues:", clues)
+    clues_copy = clues.copy()
+    self._distribute_clues_helper(line, clues_copy, range(len(line)))
+#    print("****** Going backward through line")
+#    reversed_clues_copy = clues.copy()[::-1]
+#    self._mark_completed_clues_helper_new(line, reversed_clues_copy, reversed(range(len(line))))
+#
   def test_solve(self):
     self.board[0,0] = 1
     self.board[0,1] = -1
@@ -240,99 +317,48 @@ class NonogramBoard:
     print("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB")
     self._mark_completed_clues(self.board[0,...], self.rows[0])
     print("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB")
-#    self._mark_completed_clues(self.board[1,...], self.rows[1])
+    self._mark_completed_clues(self.board[1,...], self.rows[1])
   
-  def solve(self):      
-    # First find empy, or full rows/columns
-    # Rows
-#    for idx,row in enumerate(self.rows):
-#      line = self.board[idx,...]
-#      if self.get_clues_total(row) == 0:
-#        # Empty row, set all to X
-#        self._set_range(True, idx, 0, self.width, "X")
-#        self._mark_range(line, 0, self.width, -1)
-#      elif self.get_clues_total(row) == self.width:
-#        # Row is full, populate accordingly
-#        cur_idx = 0
-#        for clue in row:
-#          #Fill in length of clue
-#          self._set_range(True, idx, cur_idx, clue, "O")
-#          self._mark_range(line, cur_idx, clue, 1)
-#          cur_idx += clue
-#          #Add spacer
-#          if cur_idx < self.width:
-#            self._set_range(True, idx, cur_idx, 1, "X")
-#            self._mark_range(line, cur_idx, 1, -1)
-#            cur_idx += 1
-#
-#    # Columns
-#    for idx,col in enumerate(self.columns):
-#      line = self.board[...,idx]
-#      if self.get_clues_total(col) == 0:
-#        # Empty column, set all to X
-#        self._set_range(False, idx, 0, self.height, "X")
-#        self._mark_range(line, 0, self.height, -1)
-#      elif self.get_clues_total(col) == self.height:
-#        # Column is full, populate accordingly
-#        cur_idx = 0
-#        for clue in col:
-#          #Fill in length of clue
-#          self._set_range(False, idx, cur_idx, clue, "O")
-#          self._mark_range(line, cur_idx, clue, 1)
-#          cur_idx += clue
-#          # Add spacer
-#          if cur_idx < self.width:
-#            self._set_range(False, idx, cur_idx, 1, "X")
-#            self._mark_range(line, cur_idx, 1, -1)
-#            cur_idx += 1
-    while True:
-      for idx, row in enumerate(self.rows):
-        self._fill_guaranteeds(self.board[idx,...], row)
-#        self._fill_impossible(self.board[idx,...], row)
-#        self._find_guaranteeds(True, idx, row)
-#        self._find_impossible(True, idx, row)
-
-      for idx, col in enumerate(self.columns):
-        self._fill_guaranteeds(self.board[..., idx], col)
-#        self._fill_impossible(self.board[...,idx], col)
-#        self._find_guaranteeds(False, idx, col)
-#        self._find_impossible(False, idx, col)
-      
-#      print("Mark completed clues for row:{}, clues:{}".format(self.board[7,...], self.rows[7]))
-#      self._mark_completed_clues(self.board[7,...], self.rows[7])
-      steps = 0
-      while (0 in self.board) and (steps < 10):
-        for idx in range(self.height):
-          print("Mark completed clues for row:{}, clues:{}".format(self.board[idx,...], self.rows[idx]))
-          self._mark_completed_clues(self.board[idx,...], self.rows[idx])
-
-        for idx in range(self.width):
-          print("Mark completed clues for column:{}, clues:{}".format(self.board[...,idx], self.columns[idx]))
-          self._mark_completed_clues(self.board[...,idx], self.columns[idx])
-          
-        steps += 1
-
-#      for idx in range(self.height):
-#        print("Mark completed clues for row:{}, clues:{}".format(self.board[idx,...], self.rows[idx]))
-#        self._mark_completed_clues(self.board[idx,...], self.rows[idx])
-#
-#      for idx in range(self.width):
-#        print("Mark completed clues for column:{}, clues:{}".format(self.board[...,idx], self.columns[idx]))
-#        self._mark_completed_clues(self.board[...,idx], self.columns[idx])
-#
-#      for idx in range(self.height):
-#        print("Mark completed clues for row:{}, clues:{}".format(self.board[idx,...], self.rows[idx]))
-#        self._mark_completed_clues(self.board[idx,...], self.rows[idx])
-#
-#      for idx in range(self.width):
-#        print("Mark completed clues for column:{}, clues:{}".format(self.board[...,idx], self.columns[idx]))
-#        self._mark_completed_clues(self.board[...,idx], self.columns[idx])
+  def solve(self):
+    print("First, find guaranteeds:")
+    for idx in range(self.height):
+      print("Fill guaranteed cells for row:{} {}, clues:{}".format(idx, print_array(self.board[idx,...]), self.rows[idx]))
+      self._fill_guaranteeds(self.board[idx,...], self.rows[idx])
+      input()
+      print(str(self))
 
 
-      break
-    # Fill guaranteed cells (numbers in a line with a total close enough to the size of the line)
-    # Fill other known cells, ones close enough to a boundary (edge or X) that must have others filled based on numbers
-    # Find "impossible" cells, ones that cannot be filled due to presence of other fills or Xs
+    for idx in range(self.width):
+      print("Fill guaranteed cells for column:{} {}, clues:{}".format(idx, print_array(self.board[...,idx]), self.columns[idx]))
+      self._fill_guaranteeds(self.board[..., idx], self.columns[idx])
+      input()
+      print(str(self))
+
+    print("Next, mark completed clues")
+
+    for idx in range(self.height):
+      print("Mark completed clues for row:{} {}, clues:{}".format(idx, print_array(self.board[idx,...]), self.rows[idx]))
+      self._mark_completed_clues(self.board[idx,...], self.rows[idx])
+      input()
+      print(str(self))
+
+    for idx in range(self.width):
+      print("Mark completed clues for column:{} {}, clues:{}".format(idx, print_array(self.board[...,idx]), self.columns[idx]))
+      self._mark_completed_clues(self.board[...,idx], self.columns[idx])
+      input()
+      print(str(self))
+        
+    for idx in range(self.height):
+      print("Distribute clues for row:{} {}, clues:{}".format(idx, print_array(self.board[idx,...]), self.rows[idx]))
+      self._distribute_clues(self.board[idx,...], self.rows[idx])
+      input()
+      print(str(self))
+
+    for idx in range(self.width):
+      print("Distribute clues for column:{} {}, clues:{}".format(idx, print_array(self.board[...,idx]), self.columns[idx]))
+      self._distribute_clues(self.board[..., idx], self.columns[idx])
+      input()
+      print(str(self))
 
 #print("Hello world")
 #b = NonogramBoard([[5],[0],[1,1,1],[3,1],[4]],[[1,2],[1,2],[1,3],[1,1],[1,3]])
